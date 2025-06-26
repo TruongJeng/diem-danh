@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>📋 Bảng điều khiển điểm danh</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 10px;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    .dark {
+      background-color: #222;
+      color: #eee;
+    }
+    .dark input, .dark button {
+      background-color: #333;
+      color: #fff;
+      border: 1px solid #666;
+    }
+    input, button {
+      font-size: 16px;
+      padding: 8px 12px;
+      margin: 5px 0;
+      width: 100%;
+      max-width: 300px;
+    }
+    #dashboard {
+      display: none;
+    }
+    #qrcode-container {
+      position: fixed;
+      top: 30px;
+      right: 30px;
+      background: #fff;
+      border: 1px solid #ccc;
+      padding: 10px;
+      display: none;
+      z-index: 10;
+    }
+    #close-qrcode {
+      position: absolute;
+      top: 2px;
+      left: 5px;
+      background: red;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    table {
+      width: 100%;
+      overflow-x: auto;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      border: 1px solid black;
+      padding: 5px;
+    }
+    .dark table, .dark th, .dark td {
+      border-color: #555;
+    }
+    @media screen and (max-width: 600px) {
+      table, thead, tbody, th, td, tr {
+        display: block;
+      }
+      th {
+        display: none;
+      }
+      td {
+        position: relative;
+        padding-left: 50%;
+        border: none;
+        border-bottom: 1px solid #ccc;
+      }
+      td::before {
+        content: attr(data-label);
+        position: absolute;
+        left: 10px;
+        font-weight: bold;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h2>Đăng nhập bằng tài khoản Google</h2>
+
+  <div id="g_id_onload"
+       data-client_id="823980236760-cqmi420iuo977dicmcckhtcl744mlfuh.apps.googleusercontent.com"
+       data-callback="handleGoogleLogin"
+       data-auto_prompt="false">
+  </div>
+
+  <div class="g_id_signin"
+       data-type="standard"
+       data-size="large"
+       data-theme="outline"
+       data-text="sign_in_with"
+       data-shape="rectangular"
+       data-logo_alignment="left">
+  </div>
+
+  <div id="dashboard">
+    <h1>📋 Bảng điều khiển điểm danh</h1>
+    <button onclick="toggleQRCode()">📷 Hiện mã QR điểm danh</button>
+    <button onclick="fetchAndRender()">🔄 Làm mới</button>
+    <button onclick="exportExcel()">📥 Xuất Excel</button>
+    <button onclick="toggleTheme()">🌓 Giao diện sáng/tối</button>
+    <button onclick="logout()">🚪 Đăng xuất</button>
+
+    <div id="qrcode-container">
+      <button id="close-qrcode" onclick="toggleQRCode()">×</button>
+      <div id="qrcode"></div>
+    </div>
+
+    <input type="text" id="searchName" placeholder="🔍 Tìm tên..." oninput="filterTable()">
+    <p id="countTotal"></p>
+
+    <table id="log-table">
+      <thead>
+        <tr><th>STT</th><th>Tên thành viên</th><th>IP</th><th>Thời gian</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script>
+    const allowedEmails = ["vokhanh2875@gmail.com", "votruonggiang15052006@gmail.com"];
+
+    function handleGoogleLogin(response) {
+      const credential = response.credential;
+      const payload = JSON.parse(atob(credential.split('.')[1]));
+      const email = payload.email;
+
+      if (allowedEmails.includes(email)) {
+        document.querySelector(".g_id_signin").style.display = "none";
+        document.getElementById("dashboard").style.display = "block";
+        initDashboard();
+      } else {
+        alert("Tài khoản không được phép truy cập.");
+      }
+    }
+
+    function logout() {
+      document.getElementById("dashboard").style.display = "none";
+      document.querySelector(".g_id_signin").style.display = "block";
+    }
+
+    function toggleQRCode() {
+      const container = document.getElementById("qrcode-container");
+      if (container.style.display === "none") {
+        container.style.display = "block";
+        document.getElementById("qrcode").innerHTML = "";
+        new QRCode(document.getElementById("qrcode"), `${window.location.origin}/`);
+      } else {
+        container.style.display = "none";
+      }
+    }
+
+    function fetchAndRender() {
+      fetch('/api/diemdanh')
+        .then(res => res.json())
+        .then(data => {
+          const tbody = document.querySelector("#log-table tbody");
+          tbody.innerHTML = "";
+          document.getElementById("countTotal").textContent = `🧾 Tổng số lượt điểm danh: ${data.length}`;
+          data.forEach((item, index) => {
+            const row = tbody.insertRow();
+            const cells = [
+              index + 1,
+              item.name || "(Không có)",
+              item.ip,
+              item.time
+            ];
+            cells.forEach((text, i) => {
+              const cell = row.insertCell(i);
+              cell.textContent = text;
+              cell.setAttribute("data-label", ["STT", "Tên", "IP", "Thời gian"][i]);
+            });
+          });
+        });
+    }
+
+    function filterTable() {
+      const keyword = document.getElementById("searchName").value.toLowerCase();
+      const rows = document.querySelectorAll("#log-table tbody tr");
+      rows.forEach(row => {
+        const name = row.cells[1].textContent.toLowerCase();
+        row.style.display = name.includes(keyword) ? "" : "none";
+      });
+    }
+
+    function exportExcel() {
+      fetch('/api/diemdanh')
+        .then(res => res.json())
+        .then(data => {
+          const wsData = [["STT", "Tên", "IP", "Thời gian"]];
+          data.forEach((item, index) => {
+            wsData.push([index + 1, item.name, item.ip, item.time]);
+          });
+
+          const wb = XLSX.utils.book_new();
+          const ws = XLSX.utils.aoa_to_sheet(wsData);
+          XLSX.utils.book_append_sheet(wb, ws, "DiemDanh");
+          XLSX.writeFile(wb, "diem_danh.xlsx");
+        });
+    }
+
+    function toggleTheme() {
+      document.body.classList.toggle('dark');
+    }
+  </script>
+</body>
+</html>

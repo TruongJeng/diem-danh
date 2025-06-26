@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Điểm danh</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 40px; text-align: center; }
+    input { padding: 8px; font-size: 16px; width: 250px; }
+    button { padding: 10px 20px; font-size: 16px; margin-top: 10px; }
+    #success { color: green; font-weight: bold; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h2>✍️ Vui lòng nhập tên để điểm danh</h2>
+  <input type="text" id="nameInput" placeholder="Nhập họ tên của bạn..." />
+  <br>
+  <button onclick="submitAttendance()">Điểm danh</button>
+  <p id="success"></p>
+
+  <script>
+    function submitAttendance() {
+      const name = document.getElementById("nameInput").value.trim();
+      if (!name) {
+        alert("Vui lòng nhập tên trước khi điểm danh!");
+        return;
+      }
+
+      fetch('/diem-danh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      })
+      .then(() => {
+        document.getElementById("success").textContent = "✅ Bạn đã điểm danh thành công!";
+        document.getElementById("nameInput").value = "";
+      });
+    }
+
+    // Nhấn Enter để gửi
+    document.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") submitAttendance();
+    });
+  </script>
+</body>
+</html>
